@@ -9,17 +9,28 @@ class Stitch
     attr_accessor :hydra
     attr_accessor :request
 
-    def initialize(hydra_arg, request_arg)
+    def initialize(hydra_arg, request_arg = nil)
+      @hydra = hydra_arg
+      self.request = request_arg if request_arg
+      @pending = []
+    end
+
+    def request=(request_arg)
       @request = request_arg
       @request.on_complete{|response| complete(response) }
-      @hydra = hydra_arg
-      @pending = []
       hydra.queue(request)
     end
 
     def complete(response)
       @response = response
-      @pending.each{|pend| pend[:fiber].resume response.send(pend[:method], *pend[:args]) }
+      @pending.each do |pend|
+        result = response.send(pend[:method], *pend[:args])
+        pend[:fiber].resume result
+      end
+    end
+
+    def get(url)
+      self.request = Typhoeus::Request.new(url, method: :get)
     end
 
     def method_missing(method, *args)
@@ -50,6 +61,10 @@ class Stitch
   def context
     Fiber.new{ yield }.resume
     hydra
+  end
+
+  def future
+    ResponseFuture.new(hydra)
   end
 
   def get(url)
