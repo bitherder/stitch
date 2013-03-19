@@ -99,11 +99,6 @@ describe "Stitch" do
   end
 
   it 'when context is dependent on future from a context at the same level' do
-    # Typhoeus::Request.should_receive(:new).with('http://localhost:4567/square/2', method: :get).ordered.and_call_original
-    # Typhoeus::Request.should_receive(:new).with('http://localhost:4567/square/3', method: :get).ordered.and_call_original
-    # Typhoeus::Request.should_receive(:new).with('http://localhost:4567/square/4', method: :get).ordered.and_call_original
-    # Typhoeus::Request.should_receive(:new).with('http://localhost:4567/cube/4', method: :get).ordered.and_call_original
-
     four = sixteen = twohundredandfiftysix = :unknown
     stitch.context do
       four_response = stitch.get('http://localhost:4567/square/2')
@@ -123,5 +118,26 @@ describe "Stitch" do
     four.should == 4
     sixteen.should == 16
     twohundredandfiftysix.should == 256
+  end
+
+  it 'when context is dependent on two futures' do
+    four = nine = big_result = :unknown
+    stitch.context do
+      four_response = stitch.get('http://localhost:4567/square/2')
+      nine_response = stitch.get('http://localhost:4567/square/3')
+
+      stitch.context do
+        four = get_value(four_response)
+        nine = get_value(nine_response)
+
+        big_result_response = nine_response = stitch.get("http://localhost:4567/square/#{four+nine}")
+
+        big_result = get_value(big_result_response)
+      end
+    end.run
+
+    four.should == 4
+    nine.should == 9
+    big_result.should == (4+9)**2
   end
 end
